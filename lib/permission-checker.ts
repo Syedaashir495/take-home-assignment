@@ -196,6 +196,17 @@ export async function hasAccountAccess(
   const supabase = supabaseClient || createClientSupabase();
   if (!supabase) return false;
 
+  // Check if user is a client - client users are strictly confined to their designated client_account_id
+  const { data: userProfile } = await supabase
+    .from('user_profiles')
+    .select('is_client, client_account_id')
+    .eq('id', userId)
+    .maybeSingle();
+
+  if (userProfile?.is_client) {
+    return userProfile.client_account_id === accountId;
+  }
+
   // Check if user is a member of the account
   const { data: memberData, error: _memberError } = await supabase
     .from('account_members')
@@ -516,6 +527,10 @@ export async function checkPermissionHybrid(
       [Permission.VIEW_ACCOUNTS]: [Permission.VIEW_ALL_ACCOUNTS],
       // MANAGE_ACCOUNTS has no override — requires base permission + context
       // (VIEW_ALL_ACCOUNTS should NOT grant manage privileges)
+
+      // Financial & Estimates
+      [Permission.VIEW_ESTIMATES]: [Permission.VIEW_ALL_ESTIMATES],
+      [Permission.MANAGE_ESTIMATES]: [Permission.MANAGE_ALL_ESTIMATES],
 
       // Updates
       [Permission.VIEW_UPDATES]: [Permission.VIEW_ALL_UPDATES],

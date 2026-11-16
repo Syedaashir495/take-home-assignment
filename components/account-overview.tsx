@@ -59,6 +59,21 @@ import {
 } from '@/components/ui/dialog';
 import { AccountEditDialog } from '@/components/account-edit-dialog';
 import { apiFetch } from '@/lib/api-config';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { EstimatesList } from '@/components/estimates/estimates-list';
+
+interface KanbanColumn {
+  id: string;
+  name: string;
+  color: string;
+  order: number;
+}
+
+const accountKanbanConfigService = {
+  getOrCreateAccountKanbanConfig: async (_id: string) => ({ columns: DEFAULT_KANBAN_COLUMNS }),
+  getStatusForKanbanColumn: (colId: string, _cols: KanbanColumn[]) => colId,
+  getKanbanColumnForStatus: (status: string, _cols: KanbanColumn[]) => status,
+};
 
 interface AccountOverviewProps {
   account: AccountWithProjects;
@@ -610,49 +625,66 @@ export function AccountOverview({
       </div>
 
       <div className="space-y-6 sm:space-y-8">
-        {/* 1. Projects Card */}
-        <Card>
-          <CardHeader className="pb-4">
-            <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
-              <div className="min-w-0 flex-1">
-                <CardTitle className="text-lg sm:text-xl">Projects</CardTitle>
-                <p className="text-muted-foreground mt-1 text-sm">
-                  Manage and track your account projects
-                </p>
-              </div>
-              {canCreateProject && (
-                <TaskCreationDialog
-                  onTaskCreated={handleTaskCreated}
-                  accountId={(account as any).id}
-                  account={account as unknown as Record<string, unknown>}
-                  userProfile={userProfile}
-                  initialStartDate={projectDialogStartDate}
-                >
-                  <Button className="flex items-center gap-2" size="sm">
-                    <PlusIcon className="h-4 w-4" />
-                    <span className="hidden sm:inline">New Project</span>
-                    <span className="sm:hidden">New</span>
-                  </Button>
-                </TaskCreationDialog>
-              )}
-            </div>
-          </CardHeader>
-          <CardContent>
-            {/* Projects Table */}
-            <ProjectDataTable
-              projects={transformToTableData(activeProjects)}
-              defaultVisibleColumns={[
-                'name',
-                'workflowStep',
-                'priority',
-                'hours',
-                'deadline',
-                'status',
-              ]}
-              onRowClick={(project) => router.push(`/projects/${project.id}`)}
+        <Tabs defaultValue="projects" className="w-full">
+          <TabsList className="grid w-full max-w-sm sm:max-w-md grid-cols-2">
+            <TabsTrigger value="projects">Projects ({activeProjects.length})</TabsTrigger>
+            <TabsTrigger value="estimates">Estimates & Quotes</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="projects" className="space-y-6 sm:space-y-8 mt-6">
+            {/* 1. Projects Card */}
+            <Card>
+              <CardHeader className="pb-4">
+                <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+                  <div className="min-w-0 flex-1">
+                    <CardTitle className="text-lg sm:text-xl">Projects</CardTitle>
+                    <p className="text-muted-foreground mt-1 text-sm">
+                      Manage and track your account projects
+                    </p>
+                  </div>
+                  {canCreateProject && (
+                    <TaskCreationDialog
+                      onTaskCreated={handleTaskCreated}
+                      accountId={(account as any).id}
+                      account={account as unknown as Record<string, unknown>}
+                      userProfile={userProfile}
+                      initialStartDate={projectDialogStartDate}
+                    >
+                      <Button className="flex items-center gap-2" size="sm">
+                        <PlusIcon className="h-4 w-4" />
+                        <span className="hidden sm:inline">New Project</span>
+                        <span className="sm:hidden">New</span>
+                      </Button>
+                    </TaskCreationDialog>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent>
+                {/* Projects Table */}
+                <ProjectDataTable
+                  projects={transformToTableData(activeProjects)}
+                  defaultVisibleColumns={[
+                    'name',
+                    'workflowStep',
+                    'priority',
+                    'hours',
+                    'deadline',
+                    'status',
+                  ]}
+                  onRowClick={(project) => router.push(`/projects/${project.id}`)}
+                />
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="estimates" className="mt-6">
+            <EstimatesList
+              accountId={accountId}
+              projects={projects.map((p: any) => ({ id: p.id, name: p.name }))}
+              canManage={hasFullAccess}
             />
-          </CardContent>
-        </Card>
+          </TabsContent>
+        </Tabs>
 
         {/* 2. Active Issues & Roadblocks Card */}
         <Card>

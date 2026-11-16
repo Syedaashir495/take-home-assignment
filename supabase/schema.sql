@@ -225,6 +225,7 @@ CREATE TRIGGER trg_projects_updated_at
 CREATE INDEX IF NOT EXISTS idx_projects_account_id  ON projects(account_id);
 CREATE INDEX IF NOT EXISTS idx_projects_created_by  ON projects(created_by);
 CREATE INDEX IF NOT EXISTS idx_projects_status      ON projects(status);
+ALTER TABLE projects ADD CONSTRAINT uk_projects_id_account UNIQUE (id, account_id);
 
 ALTER TABLE projects ENABLE ROW LEVEL SECURITY;
 
@@ -939,6 +940,142 @@ CREATE INDEX IF NOT EXISTS idx_escrows_status ON escrows(status);
 ALTER TABLE escrows ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "escrows_service_role_all" ON escrows
+  USING (TRUE) WITH CHECK (TRUE);
+
+-- =============================================================
+-- 38. ESTIMATES & LINE ITEMS
+-- =============================================================
+CREATE TABLE IF NOT EXISTS estimates (
+  id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  account_id        UUID NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+  project_id        UUID,
+  estimate_number   TEXT NOT NULL,
+  title             TEXT NOT NULL,
+  description       TEXT,
+  status            TEXT NOT NULL DEFAULT 'draft'
+                      CHECK (status IN ('draft', 'sent', 'accepted', 'rejected')),
+  currency          TEXT NOT NULL DEFAULT 'USD',
+  subtotal_minor    BIGINT NOT NULL DEFAULT 0 CHECK (subtotal_minor >= 0),
+  tax_minor         BIGINT NOT NULL DEFAULT 0 CHECK (tax_minor >= 0),
+  total_minor       BIGINT NOT NULL DEFAULT 0 CHECK (total_minor >= 0),
+  valid_until       DATE,
+  sent_at           TIMESTAMPTZ,
+  accepted_at       TIMESTAMPTZ,
+  rejected_at       TIMESTAMPTZ,
+  rejection_reason  TEXT,
+  created_by        UUID REFERENCES user_profiles(id) ON DELETE SET NULL,
+  created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  deleted_at        TIMESTAMPTZ,
+  idempotency_key   TEXT,
+  CONSTRAINT uk_estimates_account_number UNIQUE (account_id, estimate_number),
+  CONSTRAINT chk_estimates_total_consistency CHECK (total_minor = subtotal_minor + tax_minor),
+  CONSTRAINT fk_estimates_project_account FOREIGN KEY (project_id, account_id)
+    REFERENCES projects(id, account_id) ON DELETE SET NULL
+);
+
+CREATE TRIGGER trg_estimates_updated_at
+  BEFORE UPDATE ON estimates
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE INDEX IF NOT EXISTS idx_estimates_account_status
+  ON estimates(account_id, status)
+  WHERE deleted_at IS NULL;
+
+CREATE INDEX IF NOT EXISTS idx_estimates_account_created
+  ON estimates(account_id, created_at DESC)
+  WHERE deleted_at IS NULL;
+
+CREATE INDEX IF NOT EXISTS idx_estimates_project
+  ON estimates(project_id)
+  WHERE deleted_at IS NULL;
+
+CREATE INDEX IF NOT EXISTS idx_estimates_created_by
+  ON estimates(created_by);
+
+ALTER TABLE estimates ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "estimates_service_role_all" ON estimates
+  USING (TRUE) WITH CHECK (TRUE);
+
+-- Estimate Line Items
+CREATE TABLE IF NOT EXISTS estimate_line_items (
+  id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  estimate_id       UUID NOT NULL REFERENCES estimates(id) ON DELETE CASCADE,
+  account_id        UUID NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+  position          INTEGER NOT NULL DEFAULT 0,
+  description       TEXT NOT NULL,
+  quantity          NUMERIC(12, 4) NOT NULL DEFAULT 1 CHECK (quantity > 0),
+  unit_price_minor  BIGINT NOT NULL CHECK (unit_price_minor >= 0),
+  amount_minor      BIGINT NOT NULL CHECK (amount_minor >= 0),
+  created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  deleted_at        TIMESTAMPTZ
+);
+
+CREATE TRIGGER trg_estimate_line_items_updated_at
+  BEFORE UPDATE ON estimate_line_items
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE INDEX IF NOT EXISTS idx_estimate_line_items_estimate
+  ON estimate_line_items(estimate_id, position)
+  WHERE deleted_at IS NULL;
+
+CREATE INDEX IF NOT EXISTS idx_estimate_line_items_account
+  ON estimate_line_items(account_id)
+  WHERE deleted_at IS NULL;
+
+ALTER TABLE estimate_line_items ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "estimate_line_items_service_role_all" ON estimate_line_items
+  USING (TRUE) WITH CHECK (TRUE);
+
+-- Hard Delete Prohibition Trigger for Financial Records
+CREATE OR REPLACE FUNCTION prevent_hard_delete()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF current_setting('app.allow_hard_delete', true) = 'on' THEN
+    RETURN OLD;
+  END IF;
+  RAISE EXCEPTION 'Hard deletes are prohibited on financial records. Use soft delete (deleted_at) instead.';
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_prevent_hard_delete_estimates ON estimates;
+CREATE TRIGGER trg_prevent_hard_delete_estimates
+  BEFORE DELETE ON estimates
+  FOR EACH ROW EXECUTE FUNCTION prevent_hard_delete();
+
+DROP TRIGGER IF EXISTS trg_prevent_hard_delete_estimate_line_items ON estimate_line_items;
+CREATE TRIGGER trg_prevent_hard_delete_estimate_line_items
+  BEFORE DELETE ON estimate_line_items
+  FOR EACH ROW EXECUTE FUNCTION prevent_hard_delete();
+
+-- =============================================================
+-- 39. IDEMPOTENCY KEYS
+-- =============================================================
+CREATE TABLE IF NOT EXISTS idempotency_keys (
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  account_id      UUID NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+  key             TEXT NOT NULL,
+  request_path    TEXT NOT NULL,
+  params_hash     TEXT NOT NULL,
+  response_status INTEGER NOT NULL,
+  response_body   JSONB NOT NULL,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  expires_at      TIMESTAMPTZ NOT NULL DEFAULT (NOW() + INTERVAL '24 hours'),
+  CONSTRAINT uk_idempotency_account_key UNIQUE (account_id, key)
+);
+
+CREATE INDEX IF NOT EXISTS idx_idempotency_keys_lookup
+  ON idempotency_keys(account_id, key);
+
+CREATE INDEX IF NOT EXISTS idx_idempotency_keys_expires
+  ON idempotency_keys(expires_at);
+
+ALTER TABLE idempotency_keys ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "idempotency_keys_service_role_all" ON idempotency_keys
   USING (TRUE) WITH CHECK (TRUE);
 
 -- =============================================================

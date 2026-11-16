@@ -9,7 +9,10 @@ const FETCH_TIMEOUT = 30000; // 30 seconds
 
 // Get Supabase publishable key
 const getSupabasePublishableKey = () => {
-  return process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY;
+  return (
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY ||
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+  );
 };
 
 // Get the direct Supabase URL for server-side API calls

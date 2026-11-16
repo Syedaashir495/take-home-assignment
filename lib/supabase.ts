@@ -3,7 +3,10 @@ import { logger } from './debug-logger';
 
 // Get Supabase publishable key
 const getSupabasePublishableKey = () => {
-  return process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY;
+  return (
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY ||
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+  );
 };
 
 // Check if Supabase is configured (runtime check)
@@ -584,6 +587,153 @@ export interface Database {
           updated_at?: string;
         };
       };
+      estimates: {
+        Row: {
+          id: string;
+          account_id: string;
+          project_id: string | null;
+          estimate_number: string;
+          title: string;
+          description: string | null;
+          status: 'draft' | 'sent' | 'accepted' | 'rejected';
+          currency: string;
+          subtotal_minor: number;
+          tax_minor: number;
+          total_minor: number;
+          valid_until: string | null;
+          sent_at: string | null;
+          accepted_at: string | null;
+          rejected_at: string | null;
+          rejection_reason: string | null;
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+          deleted_at: string | null;
+          idempotency_key: string | null;
+        };
+        Insert: {
+          id?: string;
+          account_id: string;
+          project_id?: string | null;
+          estimate_number: string;
+          title: string;
+          description?: string | null;
+          status?: 'draft' | 'sent' | 'accepted' | 'rejected';
+          currency?: string;
+          subtotal_minor?: number;
+          tax_minor?: number;
+          total_minor?: number;
+          valid_until?: string | null;
+          sent_at?: string | null;
+          accepted_at?: string | null;
+          rejected_at?: string | null;
+          rejection_reason?: string | null;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+          deleted_at?: string | null;
+          idempotency_key?: string | null;
+        };
+        Update: {
+          id?: string;
+          account_id?: string;
+          project_id?: string | null;
+          estimate_number?: string;
+          title?: string;
+          description?: string | null;
+          status?: 'draft' | 'sent' | 'accepted' | 'rejected';
+          currency?: string;
+          subtotal_minor?: number;
+          tax_minor?: number;
+          total_minor?: number;
+          valid_until?: string | null;
+          sent_at?: string | null;
+          accepted_at?: string | null;
+          rejected_at?: string | null;
+          rejection_reason?: string | null;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+          deleted_at?: string | null;
+          idempotency_key?: string | null;
+        };
+      };
+      estimate_line_items: {
+        Row: {
+          id: string;
+          estimate_id: string;
+          account_id: string;
+          position: number;
+          description: string;
+          quantity: number;
+          unit_price_minor: number;
+          amount_minor: number;
+          created_at: string;
+          updated_at: string;
+          deleted_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          estimate_id: string;
+          account_id: string;
+          position?: number;
+          description: string;
+          quantity?: number;
+          unit_price_minor: number;
+          amount_minor: number;
+          created_at?: string;
+          updated_at?: string;
+          deleted_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          estimate_id?: string;
+          account_id?: string;
+          position?: number;
+          description?: string;
+          quantity?: number;
+          unit_price_minor?: number;
+          amount_minor?: number;
+          created_at?: string;
+          updated_at?: string;
+          deleted_at?: string | null;
+        };
+      };
+      idempotency_keys: {
+        Row: {
+          id: string;
+          account_id: string;
+          key: string;
+          request_path: string;
+          params_hash: string;
+          response_status: number;
+          response_body: Record<string, unknown>;
+          created_at: string;
+          expires_at: string;
+        };
+        Insert: {
+          id?: string;
+          account_id: string;
+          key: string;
+          request_path: string;
+          params_hash: string;
+          response_status: number;
+          response_body: Record<string, unknown>;
+          created_at?: string;
+          expires_at?: string;
+        };
+        Update: {
+          id?: string;
+          account_id?: string;
+          key?: string;
+          request_path?: string;
+          params_hash?: string;
+          response_status?: number;
+          response_body?: Record<string, unknown>;
+          created_at?: string;
+          expires_at?: string;
+        };
+      };
     };
   };
 }
@@ -602,6 +752,21 @@ export type ProjectAssignment = Database['public']['Tables']['project_assignment
 export type UserAvailability = Database['public']['Tables']['user_availability']['Row'];
 export type TimeEntry = Database['public']['Tables']['time_entries']['Row'];
 export type TaskWeekAllocation = Database['public']['Tables']['task_week_allocations']['Row'];
+
+// Financial & Estimate types
+export type Estimate = Database['public']['Tables']['estimates']['Row'];
+export type EstimateInsert = Database['public']['Tables']['estimates']['Insert'];
+export type EstimateUpdate = Database['public']['Tables']['estimates']['Update'];
+export type EstimateLineItem = Database['public']['Tables']['estimate_line_items']['Row'];
+export type EstimateLineItemInsert = Database['public']['Tables']['estimate_line_items']['Insert'];
+export type EstimateLineItemUpdate = Database['public']['Tables']['estimate_line_items']['Update'];
+export type IdempotencyKey = Database['public']['Tables']['idempotency_keys']['Row'];
+export type EstimateStatus = 'draft' | 'sent' | 'accepted' | 'rejected';
+export type EstimateWithLineItems = Estimate & {
+  estimate_line_items: EstimateLineItem[];
+  projects?: { id: string; name: string } | null;
+  accounts?: { id: string; name: string } | null;
+};
 
 /**
  * A Supabase client instance (browser or server).

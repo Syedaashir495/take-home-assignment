@@ -94,6 +94,14 @@ export enum Permission {
   // ========================================
   MANAGE_CLIENT_INVITES = 'manage_client_invites', // Manage client invitations (admin/account manager permission)
   // Note: Client access and approval permissions are now hardcoded based on is_client flag
+
+  // ========================================
+  // FINANCIAL & ESTIMATE PERMISSIONS
+  // ========================================
+  VIEW_ESTIMATES = 'view_estimates', // View estimates in assigned accounts
+  MANAGE_ESTIMATES = 'manage_estimates', // Create, edit drafts, and transition estimates in assigned accounts
+  VIEW_ALL_ESTIMATES = 'view_all_estimates', // Override: View all estimates organization-wide
+  MANAGE_ALL_ESTIMATES = 'manage_all_estimates', // Override: Manage any estimate regardless of account assignment
 }
 
 // Human-readable permission definitions
@@ -347,10 +355,41 @@ export const PermissionDefinitions: Record<
       'Send client invitations and view client feedback (admin/account manager permission)',
     category: 'Client Portal',
   },
+
+  // ========================================
+  // FINANCIAL & ESTIMATE PERMISSIONS
+  // ========================================
+  [Permission.VIEW_ESTIMATES]: {
+    name: 'View Estimates',
+    description: 'View estimates and financial proposals in assigned accounts',
+    category: 'Financial Management',
+  },
+  [Permission.MANAGE_ESTIMATES]: {
+    name: 'Manage Estimates',
+    description:
+      'Create, edit draft estimates, and transition estimate lifecycles in assigned accounts',
+    category: 'Financial Management',
+  },
+  [Permission.VIEW_ALL_ESTIMATES]: {
+    name: 'View All Estimates',
+    description: 'View all estimates organization-wide (override)',
+    category: 'Financial Management',
+    isOverride: true,
+  },
+  [Permission.MANAGE_ALL_ESTIMATES]: {
+    name: 'Manage All Estimates',
+    description: 'Create, edit, and manage all estimates organization-wide (override)',
+    category: 'Financial Management',
+    isOverride: true,
+  },
 };
 
 // Permission categories for UI grouping (excludes deprecated permissions)
 export const PermissionCategories = {
+  'Financial Management': Object.values(Permission).filter(
+    (p: Permission) =>
+      (PermissionDefinitions as any)[p as string]?.category === 'Financial Management',
+  ),
   'Role Management': Object.values(Permission).filter(
     (p: Permission) => (PermissionDefinitions as any)[p as string]?.category === 'Role Management',
   ),

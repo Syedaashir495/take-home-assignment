@@ -456,6 +456,54 @@ export const submitClientFeedbackSchema = z.object({
   workflow_history_id: uuidSchema.optional().nullable(),
 });
 
+// ============================================================================
+// ESTIMATE SCHEMAS
+// ============================================================================
+
+export const createEstimateLineItemSchema = z.object({
+  description: z.string().min(1, 'Line item description is required').max(500, 'Description too long'),
+  quantity: positiveNumberSchema,
+  unit_price_minor: z.number().int('Unit price in minor units must be an integer').nonnegative('Unit price cannot be negative'),
+  position: z.number().int().nonnegative().optional(),
+});
+
+export const createEstimateSchema = z.object({
+  estimate_number: z.string().min(1, 'Estimate number is required').max(50, 'Estimate number too long'),
+  title: z.string().min(1, 'Title is required').max(200, 'Title too long'),
+  description: z.string().max(2000, 'Description too long').optional().nullable(),
+  project_id: optionalUuidSchema,
+  currency: z.string().length(3, 'Currency must be a 3-letter ISO code').default('USD').optional(),
+  valid_until: dateOnlySchema.optional().nullable(),
+  tax_rate: z.number().min(0, 'Tax rate cannot be negative').max(1, 'Tax rate cannot exceed 100%').default(0).optional(),
+  line_items: z.array(createEstimateLineItemSchema).min(1, 'At least one line item is required'),
+});
+
+export const updateEstimateSchema = z.object({
+  estimate_number: z.string().min(1).max(50).optional(),
+  title: z.string().min(1).max(200).optional(),
+  description: z.string().max(2000).optional().nullable(),
+  project_id: optionalUuidSchema,
+  currency: z.string().length(3).optional(),
+  valid_until: dateOnlySchema.optional().nullable(),
+  tax_rate: z.number().min(0).max(1).optional(),
+  line_items: z.array(createEstimateLineItemSchema).min(1).optional(),
+});
+
+export const estimateTransitionSchema = z.object({
+  status: z.enum(['sent', 'accepted', 'rejected'], {
+    error: 'Status must be one of: sent, accepted, rejected',
+  }),
+  rejection_reason: z.string().max(1000, 'Rejection reason too long').optional().nullable(),
+});
+
+export const estimateFilterSchema = z.object({
+  status: z.enum(['draft', 'sent', 'accepted', 'rejected']).optional(),
+  projectId: uuidSchema.optional(),
+  search: z.string().max(100).optional(),
+  page: z.coerce.number().int().positive().default(1).optional(),
+  limit: z.coerce.number().int().positive().max(100).default(20).optional(),
+});
+
 // Export type inference helpers
 export type CreateProjectInput = z.infer<typeof createProjectSchema>;
 export type UpdateProjectInput = z.infer<typeof updateProjectSchema>;
@@ -469,6 +517,13 @@ export type CreateRoleInput = z.infer<typeof createRoleSchema>;
 export type UpdateRoleInput = z.infer<typeof updateRoleSchema>;
 export type CreateProjectUpdateInput = z.infer<typeof createProjectUpdateSchema>;
 export type CreateIssueInput = z.infer<typeof createIssueSchema>;
+
+// Estimate type exports
+export type CreateEstimateLineItemInput = z.infer<typeof createEstimateLineItemSchema>;
+export type CreateEstimateInput = z.infer<typeof createEstimateSchema>;
+export type UpdateEstimateInput = z.infer<typeof updateEstimateSchema>;
+export type EstimateTransitionInput = z.infer<typeof estimateTransitionSchema>;
+export type EstimateFilterInput = z.infer<typeof estimateFilterSchema>;
 
 // Phase 1 type exports
 export type CreateWorkflowTemplateInput = z.infer<typeof createWorkflowTemplateSchema>;
